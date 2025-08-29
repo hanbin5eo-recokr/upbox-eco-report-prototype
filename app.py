@@ -85,10 +85,11 @@ st.markdown("---")
 
 # --- 4.1. 환경 임팩트 성과 (KPI) ---
 st.header("📈 24년 누적 환경 임팩트")
-kpi_cols = st.columns(3)
+kpi_cols = st.columns(4)
 with kpi_cols[0]: st.metric(label="이산화탄소 감축량 💨", value="1,134.7 MtCO2eq.")
 with kpi_cols[1]: st.metric(label="물 절약량 💧", value="3,058.58 m³H₂Oeq")
 with kpi_cols[2]: st.metric(label="에너지 회수량 🔥", value="758,923 MWh")
+with kpi_cols[3]: st.metric(label="재활용률 :recycle:", value="37 %")
 effect_cols = st.columns(2)
 with effect_cols[0]: st.markdown(
     f"""<div style="background-color: #F0F2F6; padding: 20px; border-radius: 10px; text-align: center;"><p style="font-size: 1.2em; font-weight: bold; margin: 0;">🌲 녹화 효과</p><p style="font-size: 2.5em; font-weight: bold; color: #2E8B57; margin: 0;">소나무 112,501그루</p></div>""",
@@ -246,7 +247,7 @@ with st.expander("상세 데이터 보기"):
                      })
     else:
         st.warning("표시할 YoY 데이터가 없습니다.")
-st.markdown("---")
+# st.markdown("---")
 
 # # --- 4.4. 동종 업계 비교 분석 (✅ 전체 재구성) ---
 # st.header("🏢 동종 업계(식품 공장) 배출량 비교")
