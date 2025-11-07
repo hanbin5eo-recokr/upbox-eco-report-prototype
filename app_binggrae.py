@@ -35,17 +35,23 @@ def get_sigma_message(z_score):
 
 # --- 2. 데이터 로딩 및 전처리 ---
 @st.cache_data
-def load_data(monthly_path):
+def load_data(monthly_path, industry_path):
     df_monthly = pd.read_csv(monthly_path)
     df_monthly['base_date'] = pd.to_datetime(df_monthly['base_date'])
     df_monthly['month'] = df_monthly['base_date'].dt.strftime('%Y-%m')
     df_monthly['mnthly_amount'] = df_monthly['mnthly_amount'].fillna(0)
     df_monthly['ly_mnthly_amount'] = df_monthly['ly_mnthly_amount'].fillna(0)
 
-    return df_monthly
+    df_industry = pd.read_csv(industry_path)
+    df_industry['avg_mnthly_amount'] = df_industry['avg_mnthly_amount'].fillna(0)
+
+    df_binggrae = df_industry[df_industry['tgt_customer_flag'] == 1].copy()
+    df_competitor = df_industry[df_industry['tgt_customer_flag'] == 0].copy()
+
+    return df_monthly, df_binggrae, df_competitor
 
 
-df_monthly = load_data('inspire_mnthly_amount.csv')
+df_monthly, df_binggrae, df_competitor = load_data('binggrae_mnthly_amount.csv', 'binggrae_industry_avg_amount.csv')
 
 # --- 3. 사이드바 및 필터 설정 ---
 latest_available_month = df_monthly['base_date'].max()
@@ -74,16 +80,16 @@ df_report_month_filtered = df_monthly_filtered[df_monthly_filtered['base_date'] 
 
 # --- 4. 메인 대시보드 구성 ---
 st.title("업박스 고객사 에코(ESG) 리포트")
-st.subheader(f"주식회사 인스파이어인티그레이티드리조트 | {report_month_str} 기준")
+st.subheader(f"B사 | {report_month_str} 기준")
 st.markdown("---")
 
 # --- 4.1. 환경 임팩트 성과 (KPI) ---
-st.header(f"📈 {report_month_str} 누적 환경 임팩트")
+st.header("📈 24년 누적 환경 임팩트")
 kpi_cols = st.columns(4)
-with kpi_cols[0]: st.metric(label="이산화탄소 감축량 💨", value="4,043 MtCO2eq.")
-with kpi_cols[1]: st.metric(label="물 절약량 💧", value="2416 m³H₂Oeq")
-with kpi_cols[2]: st.metric(label="에너지 회수량 🔥", value="5,339 MWh")
-with kpi_cols[3]: st.metric(label="재활용률 :recycle:", value="TBU %")
+with kpi_cols[0]: st.metric(label="이산화탄소 감축량 💨", value="1,134.7 MtCO2eq.")
+with kpi_cols[1]: st.metric(label="물 절약량 💧", value="3,058.58 m³H₂Oeq")
+with kpi_cols[2]: st.metric(label="에너지 회수량 🔥", value="758,923 MWh")
+with kpi_cols[3]: st.metric(label="재활용률 :recycle:", value="37 %")
 effect_cols = st.columns(2)
 with effect_cols[0]: st.markdown(
     f"""<div style="background-color: #F0F2F6; padding: 20px; border-radius: 10px; text-align: center;"><p style="font-size: 1.2em; font-weight: bold; margin: 0;">🌲 녹화 효과</p><p style="font-size: 2.5em; font-weight: bold; color: #2E8B57; margin: 0;">소나무 112,501그루</p></div>""",
@@ -241,8 +247,93 @@ with st.expander("상세 데이터 보기"):
                      })
     else:
         st.warning("표시할 YoY 데이터가 없습니다.")
-st.markdown("---")
+# st.markdown("---")
 
+# # --- 4.4. 동종 업계 비교 분석 (✅ 전체 재구성) ---
+# st.header("🏢 동종 업계(식품 공장) 배출량 비교")
+
+# # --- 인사이트 1: 배출 품목 다양성 분석 ---
+# st.subheader("1. 배출 품목 다양성 분석")
+# binggrae_total_item_count = df_binggrae['waste_item'].nunique()
+# industry_item_counts = df_competitor.groupby('customer_company_name')['waste_item'].nunique()
+# avg_industry_item_count = industry_item_counts.mean()
+# st.markdown(
+#     f"동종 업계(식품공장)는 평균 **{avg_industry_item_count:.0f}개**의 폐기물 품목을 배출하는데, B사는 **{binggrae_total_item_count}개**의 폐기물을 배출하고 있어, 보다 다양한 품목을 관리하고 있습니다.")
+
+# # 밀도 함수 시각화
+# fig_dist_items = ff.create_distplot([industry_item_counts.tolist()], ['동종업계'], show_hist=False, show_rug=False,
+#                                     colors=['gray'])
+# fig_dist_items.add_vline(x=binggrae_total_item_count, line_width=2, line_dash="dash", line_color="orange",
+#                          annotation_text=f"B사: {binggrae_total_item_count}개", annotation_position="top right")
+# # ✅ 요구사항 반영: 차트 제목 수정
+# fig_dist_items.update_layout(title="동종 업계(식품공장) 배출 품목 수 분포", xaxis_title="배출 품목 수 (개)", yaxis_title="밀도",
+#                              showlegend=False)
+# st.plotly_chart(fig_dist_items, use_container_width=True)
+
+# # --- 인사이트 2: 주요 품목 상세 분석 ---
+# st.subheader("2. 주요 품목 상세 분석")
+# # 이 계산은 필터와 무관하게 전체 데이터로 수행
+# binggrae_top_volume_item = df_binggrae.sort_values('avg_mnthly_amount', ascending=False).iloc[0]['waste_item']
+# # 가장 흔한 품목 계산 (내러티브에서만 사용)
+# most_common_item = df_competitor['waste_item'].value_counts().idxmax()
+# percentile_by_item = {}
+# for item in df_binggrae['waste_item'].unique():
+#     b_val = df_binggrae[df_binggrae['waste_item'] == item]['avg_mnthly_amount'].iloc[0]
+#     c_vals = df_competitor[df_competitor['waste_item'] == item]['avg_mnthly_amount']
+#     if len(c_vals) > 1:
+#         percentile_by_item[item] = percentileofscore(c_vals, b_val, kind='rank')
+
+# # 가장 흔한 품목에 대한 분석 내러티브
+# c_vals_common = df_competitor[df_competitor['waste_item'] == most_common_item]['avg_mnthly_amount']
+# if not c_vals_common.empty:
+#     b_val_common = df_binggrae[df_binggrae['waste_item'] == most_common_item]['avg_mnthly_amount'].iloc[0]
+#     z_score_common = (b_val_common - c_vals_common.mean()) / c_vals_common.std() if c_vals_common.std() > 0 else 0
+#     sigma_message = get_sigma_message(z_score_common)
+#     st.markdown(f"동종 업계에서 가장 흔하게 배출되는 품목은 `{most_common_item}`이며, 이 품목에 대해 B사는 {sigma_message}")
+
+# # 상대적 최다 배출 품목 분석 내러티브
+# if percentile_by_item:
+#     relative_worst_item = max(percentile_by_item, key=percentile_by_item.get)
+#     worst_percentile = percentile_by_item[relative_worst_item]
+#     st.markdown(
+#         f"한편, B사의 배출량을 단순 규모로 보면 `{binggrae_top_volume_item}`이 가장 큰 비중을 차지하지만, 동종 업계와 비교 시 상대적으로 가장 많이 배출하는 품목은 `{relative_worst_item}`으로, 업계 `상위 {100 - worst_percentile:.1f}%`에 해당됩니다.")
+
+# # 품목별 밀도 분포 그리드
+# st.markdown("##### 품목별 배출량 분포 상세")
+# cols = st.columns(2)
+# col_idx = 0
+# if percentile_by_item:
+#     for item, percentile in sorted(percentile_by_item.items(), key=lambda x: x[1], reverse=True):
+#         with cols[col_idx % 2]:
+#             b_val = df_binggrae[df_binggrae['waste_item'] == item]['avg_mnthly_amount'].iloc[0]
+#             c_vals = df_competitor[df_competitor['waste_item'] == item]['avg_mnthly_amount']
+
+#             if c_vals.empty:
+#                 st.markdown(f"**{item}**")
+#                 st.warning("동종업계 비교 데이터가 부족합니다.")
+#                 col_idx += 1
+#                 continue
+
+#             mean_val = c_vals.mean()
+
+#             fig_dist = ff.create_distplot([c_vals.tolist()], [item], show_hist=False, show_rug=False, colors=['gray'])
+#             fig_dist.add_vline(x=b_val, line_width=2, line_dash="dash", line_color="orange")
+#             fig_dist.add_vline(x=mean_val, line_width=2, line_dash="dot", line_color="blue")
+
+#             fig_dist.update_layout(
+#                 title=f"'{item}' 배출량 분포 (상위 {100 - percentile:.1f}%)",
+#                 xaxis_title="월평균 배출량 (kg)", yaxis_title="밀도", showlegend=False, height=300,
+#                 annotations=[
+#                     dict(x=b_val, y=0.05, xref="x", yref="paper", showarrow=False, text="B사", bgcolor="orange",
+#                          font=dict(color="white")),
+#                     dict(x=mean_val, y=0.05, xref="x", yref="paper", showarrow=False, text="평균", bgcolor="blue",
+#                          font=dict(color="white"))
+#                 ]
+#             )
+#             st.plotly_chart(fig_dist, use_container_width=True)
+#             col_idx += 1
+# else:
+#     st.warning("상세 비교를 위한 데이터가 부족합니다.")
 
 # --- 5. 푸터 (저작권) ---
 st.markdown("---")
